@@ -102,22 +102,31 @@ describe('catsco-messages', () => {
 
 describe('catsco-send', () => {
   let config: any
+  const savedFile = process.env.CATSCO_RECEIPT_FILE
 
   beforeEach(async () => {
+    const { rmSync } = await import('node:fs')
+    process.env.CATSCO_RECEIPT_FILE = '/tmp/catsco-send-receipts.json'
+    rmSync('/tmp/catsco-send-receipts.json', { force: true })
     config = await load('catsco-send')
+  })
+
+  afterEach(() => {
+    if (savedFile === undefined) delete process.env.CATSCO_RECEIPT_FILE
+    else process.env.CATSCO_RECEIPT_FILE = savedFile
   })
 
   it('registers the send command as write access', () => {
     expect(config.name).toBe('send')
     expect(config.access).toBe('write')
-    expect(config.defaultFormat).toBe('plain')
+    expect(config.defaultFormat).toBe('json')
   })
 
   it('throws ArgumentError on empty content', async () => {
     await expect(config.func({}, { topic: 'grp_1258', content: '   ' })).rejects.toThrow('content cannot be empty')
   })
 
-  it('posts a text message and returns the SendRow', async () => {
+  it('returns a stable receipt object', async () => {
     const page = {
       evaluate: vi.fn(async (_script?: unknown) => ({
         status: 200,
@@ -128,7 +137,22 @@ describe('catsco-send', () => {
     const script = page.evaluate.mock.calls[0][0] as unknown as string
     expect(script).toContain("method: 'POST'")
     expect(script).toContain('"topic_id":"grp_1258"')
-    expect(result[0]).toMatchObject({ topicId: 'grp_1258', content: 'hello' })
+    expect(result).toMatchObject({ messageId: '517999', topicId: 'grp_1258', seqId: '517999', duplicate: false })
+    expect(typeof result.contentDigest).toBe('string')
+  })
+
+  it('records an idempotent receipt and reports duplicate when client-message-id is set', async () => {
+    const page = {
+      evaluate: vi.fn(async (_script?: unknown) => ({
+        status: 200,
+        body: { topic_id: 'grp_1258', seq_id: 517999, client_msg_id: 'loop:42', duplicate: true }
+      }))
+    }
+    const result = await config.func(page, { topic: 'grp_1258', content: 'hi', 'client-message-id': 'loop:42' })
+    expect(result).toMatchObject({ clientMsgId: 'loop:42', duplicate: true, seqId: '517999' })
+    const { readFileSync } = await import('node:fs')
+    const registry = JSON.parse(readFileSync('/tmp/catsco-send-receipts.json', 'utf8'))
+    expect(registry['grp_1258::loop:42'].seqId).toBe('517999')
   })
 })
 
@@ -445,5 +469,113 @@ describe('catsco-project-sessions', () => {
     const result = await config.func(page, { project: '开发' })
     expect(result).toHaveLength(1)
     expect(result[0].topicId).toBe('grp_1')
+  })
+})
+
+describe('catsco-message-receipt', () => {
+  let config: any
+  const savedFile = process.env.CATSCO_RECEIPT_FILE
+
+  beforeEach(async () => {
+    process.env.CATSCO_RECEIPT_FILE = '/tmp/catsco-receipt-test.json'
+    config = await load('catsco-message-receipt')
+  })
+
+  afterEach(async () => {
+    const { rmSync } = await import('node:fs')
+    rmSync('/tmp/catsco-receipt-test.json', { force: true })
+    if (savedFile === undefined) delete process.env.CATSCO_RECEIPT_FILE
+    else process.env.CATSCO_RECEIPT_FILE = savedFile
+  })
+
+  it('returns found:false when no receipt was recorded', async () => {
+    const result = await config.func({}, { topic: 'p2p_275_574', 'client-message-id': 'nope:1' })
+    expect(result).toEqual({ found: false })
+  })
+
+  it('returns a receipt and server confirmation when found', async () => {
+    const { recordReceipt, sha256Hex } = await import('../../src/lib/receipt')
+    recordReceipt({
+      messageId: '517999',
+      topicId: 'grp_1258',
+      clientMsgId: 'loop:42',
+      seqId: '517999',
+      duplicate: false,
+      contentDigest: sha256Hex('hello'),
+      recordedAt: new Date().toISOString()
+    })
+    const page = {
+      evaluate: vi.fn(async () => ({
+        status: 200,
+        body: { messages: [{ seq_id: 517999, id: 517999, topic_id: 'grp_1258', created_at: '2026-08-04T03:00:00Z' }] }
+      }))
+    }
+    const result = await config.func(page, { topic: 'grp_1258', 'client-message-id': 'loop:42' })
+    expect(result).toMatchObject({
+      found: true,
+      messageId: '517999',
+      clientMsgId: 'loop:42',
+      seqId: '517999',
+      serverConfirmed: true
+    })
+  })
+})
+
+describe('catsco-messages --after-seq', () => {
+  let config: any
+
+  beforeEach(async () => {
+    config = await load('catsco-messages')
+  })
+
+  it('returns a cursor envelope with items, nextCursor, and hasMore', async () => {
+    const page = {
+      evaluate: vi.fn(async () => ({
+        status: 200,
+        body: {
+          messages: [
+            { seq_id: 790, id: 790, topic_id: 'topic_456', from_uid: 574, type: 'text', content: 'b', created_at: 't2' },
+            { seq_id: 789, id: 789, topic_id: 'topic_456', from_uid: 574, type: 'text', content: 'a', created_at: 't1' }
+          ]
+        }
+      }))
+    }
+    const result = await config.func(page, { topic: 'topic_456', 'after-seq': 789, limit: 100 })
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0]).toMatchObject({ seqId: '790', senderUid: '574', content: 'b', kind: 'text' })
+    expect(typeof result.items[0].contentDigest).toBe('string')
+    expect(result.nextCursor).toBe('790')
+    expect(result.hasMore).toBe(false)
+  })
+
+  it('filters to seq strictly greater than after-seq and sorts ascending', async () => {
+    const page = {
+      evaluate: vi.fn(async () => ({
+        status: 200,
+        body: {
+          messages: [
+            { seq_id: 100, id: 100, from_uid: 1, type: 'text', content: 'c' },
+            { seq_id: 95, id: 95, from_uid: 1, type: 'text', content: 'a' },
+            { seq_id: 96, id: 96, from_uid: 1, type: 'text', content: 'b' }
+          ]
+        }
+      }))
+    }
+    const result = await config.func(page, { topic: 't', 'after-seq': 95, limit: 10 })
+    expect(result.items.map((item: any) => item.seqId)).toEqual(['96', '100'])
+    expect(result.nextCursor).toBe('100')
+  })
+
+  it('stringifies object content instead of [object Object]', async () => {
+    const page = {
+      evaluate: vi.fn(async () => ({
+        status: 200,
+        body: {
+          messages: [{ seq_id: 1, id: 1, from_uid: 275, type: 'text', content: { type: 'x', n: 1 } }]
+        }
+      }))
+    }
+    const result = await config.func(page, { topic: 't', 'after-seq': 0, limit: 10 })
+    expect(result.items[0].content).toBe('{"type":"x","n":1}')
   })
 })

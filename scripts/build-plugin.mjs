@@ -8,6 +8,7 @@ const commandEntries = [
   ['catsco-projects.ts', 'catsco-projects.js'],
   ['catsco-project-sessions.ts', 'catsco-project-sessions.js'],
   ['catsco-messages.ts', 'catsco-messages.js'],
+  ['catsco-message-receipt.ts', 'catsco-message-receipt.js'],
   ['catsco-entries.ts', 'catsco-entries.js'],
   ['catsco-artifacts.ts', 'catsco-artifacts.js'],
   ['catsco-open.ts', 'catsco-open.js'],

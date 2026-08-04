@@ -51,6 +51,17 @@ function str(value: unknown): string {
   return value == null ? '' : String(value)
 }
 
+/** Render message content: objects are JSON-stringified back to their stored form. */
+export function contentString(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (value == null) return ''
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
 function bool(value: unknown): boolean {
   return value === true || value === 1 || value === '1' || value === 'true'
 }
@@ -267,7 +278,7 @@ export function normalizeMessage(raw: RawMessage): MessageRow {
     seqId: Number(raw.seq_id ?? raw.id ?? 0),
     type: str(raw.type || raw.msg_type),
     from: str(raw.from),
-    content: str(raw.content),
+    content: contentString(raw.content),
     createdAt: str(raw.created_at)
   }
 }

@@ -162,3 +162,68 @@ pnpm build:plugin   # esbuild .ts -> .js (run before opencli picks up changes)
 The built `.js` files are gitignored; OpenCLI transpiles the `.ts` sources
 automatically at load time, so committing the TypeScript is sufficient for
 distribution.
+
+## Loop control (P0): idempotent send, receipts, seq cursors
+
+These three capabilities let a Controller (e.g. `loopctl`) safely drive an
+existing topic's loop: retry without duplicates, reconcile after network
+timeouts, and pull new events on a stable seq cursor.
+
+### 1. Idempotent send — `send --client-message-id`
+
+```bash
+opencli catsco send <topic> --client-message-id "loop:42:action:review-001" --content-file packet.json -f json
+```
+
+The CatsCo backend dedupes on `(topic_id, sender_uid, client_msg_id)` and returns
+a stable receipt. Re-sending the same `client_msg_id` returns the original
+`seqId` with `duplicate: true`:
+
+```json
+{ "messageId": "524863", "topicId": "p2p_275_574", "clientMsgId": "loop:42",
+  "seqId": "524863", "duplicate": false, "contentDigest": "sha256:…" }
+```
+
+> **Backend gap:** the same `client_msg_id` with *different* content currently
+> returns `duplicate: true` (not a `409 client_message_id_conflict`). That
+> conflict semantics needs a cats-company backend change.
+
+### 2. Reconcile — `message-receipt`
+
+```bash
+opencli catsco message-receipt <topic> --client-message-id "loop:42:action:review-001" -f json
+```
+
+`{ "found": true, …, "serverConfirmed": true }` — used to check whether a send
+landed after a network timeout. Receipts are recorded locally (per this CLI) at
+`~/.opencli/sites/catsco/receipts.json` (`CATSCO_RECEIPT_FILE` to override).
+
+> **Backend gap:** there is no server-side "lookup by client_msg_id" endpoint and
+> the message-history response does not expose `client_msg_id`. The local
+> registry covers sends made by this CLI; a server-authoritative lookup needs a
+> small cats-company change to surface `client_msg_id`.
+
+### 3. Pull by stable cursor — `messages --after-seq`
+
+```bash
+opencli catsco messages <topic> --after-seq 789 --limit 100 -f json
+```
+
+Returns ascending items strictly newer than the cursor plus the next cursor:
+
+```json
+{ "items": [ { "seqId": "790", "senderUid": "574", "kind": "text",
+    "content": "…", "contentDigest": "sha256:…", "serverReceivedAt": "…" } ],
+  "nextCursor": "790", "hasMore": false }
+```
+
+`seqId` is monotonic per topic; the Controller advances the cursor only after a
+successful commit. This is seq-based, not offset-based.
+
+> **Notes / backend gaps:** the backend has no `after_seq` param, so this fetches
+> `latest=N` and filters client-side (correct for bounded topics; a large gap
+> needs a bigger `--limit`). `run_id`/`body_id` are not exposed on ordinary
+> messages (`run_id` only appears in `task_status`), and `contentDigest` is
+> computed client-side (sha256 of the retrieved content) — the backend does not
+> compute it. Because Go re-orders JSON keys, the digest of a structured packet
+> may differ between the sent bytes and the retrieved content.
