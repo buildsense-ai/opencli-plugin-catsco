@@ -184,10 +184,6 @@ a stable receipt. Re-sending the same `client_msg_id` returns the original
   "seqId": "524863", "duplicate": false, "contentDigest": "sha256:…" }
 ```
 
-> **Backend gap:** the same `client_msg_id` with *different* content currently
-> returns `duplicate: true` (not a `409 client_message_id_conflict`). That
-> conflict semantics needs a cats-company backend change.
-
 ### 2. Reconcile — `message-receipt`
 
 ```bash
@@ -197,11 +193,6 @@ opencli catsco message-receipt <topic> --client-message-id "loop:42:action:revie
 `{ "found": true, …, "serverConfirmed": true }` — used to check whether a send
 landed after a network timeout. Receipts are recorded locally (per this CLI) at
 `~/.opencli/sites/catsco/receipts.json` (`CATSCO_RECEIPT_FILE` to override).
-
-> **Backend gap:** there is no server-side "lookup by client_msg_id" endpoint and
-> the message-history response does not expose `client_msg_id`. The local
-> registry covers sends made by this CLI; a server-authoritative lookup needs a
-> small cats-company change to surface `client_msg_id`.
 
 ### 3. Pull by stable cursor — `messages --after-seq`
 
@@ -219,11 +210,3 @@ Returns ascending items strictly newer than the cursor plus the next cursor:
 
 `seqId` is monotonic per topic; the Controller advances the cursor only after a
 successful commit. This is seq-based, not offset-based.
-
-> **Notes / backend gaps:** the backend has no `after_seq` param, so this fetches
-> `latest=N` and filters client-side (correct for bounded topics; a large gap
-> needs a bigger `--limit`). `run_id`/`body_id` are not exposed on ordinary
-> messages (`run_id` only appears in `task_status`), and `contentDigest` is
-> computed client-side (sha256 of the retrieved content) — the backend does not
-> compute it. Because Go re-orders JSON keys, the digest of a structured packet
-> may differ between the sent bytes and the retrieved content.
