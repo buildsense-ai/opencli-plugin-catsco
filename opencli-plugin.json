@@ -1,0 +1,6 @@
+{
+  "name": "catsco",
+  "version": "0.1.0",
+  "opencli": ">=1.0.0",
+  "description": "CatsCo plugin — drive the CatsCo AI agent assistant: list agents & tasks, read messages, send prompts"
+}

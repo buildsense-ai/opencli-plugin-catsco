@@ -1,0 +1,29 @@
+{
+  "name": "opencli-plugin-catsco",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.15.0",
+  "description": "OpenCLI plugin for CatsCo AI agent assistant (app.catsco.cc)",
+  "scripts": {
+    "build:plugin": "node ./scripts/build-plugin.mjs",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@jackwener/opencli": ">=1.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@jackwener/opencli"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "esbuild": "^0.25.9",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

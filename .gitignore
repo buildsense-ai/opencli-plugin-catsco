@@ -1,0 +1,9 @@
+node_modules/
+*.js
+!scripts/*.mjs
+!vitest.config.mts
+pnpm-lock.yaml
+.DS_Store
+/tmp/
+_*.js
+*.local.json
