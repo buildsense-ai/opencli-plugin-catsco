@@ -30,13 +30,18 @@ cli({
     { name: 'topic', positional: true, required: true, help: 'Conversation topic id, e.g. p2p_275_574 or grp_1258' },
     { name: 'content', positional: true, help: 'Message content (omit when using --content-file)' },
     { name: 'client-message-id', help: 'Idempotency key — server dedupes on (topic, sender, client_msg_id)' },
-    { name: 'content-file', help: 'Read message content from this file instead of the content argument' }
+    { name: 'content-file', help: 'Read message content from this file instead of the content argument' },
+    { name: 'mention', help: 'Structured agent wake target in canonical usr<uid> form, e.g. usr559' }
   ],
   columns: ['messageId', 'topicId', 'clientMsgId', 'seqId', 'duplicate', 'contentDigest'],
   func: async (page: any, kwargs: any) => {
     const topic = String(kwargs.topic)
     const clientMsgId = kwargs['client-message-id'] ? String(kwargs['client-message-id']) : ''
     const contentFile = kwargs['content-file'] ? String(kwargs['content-file']) : ''
+    const mention = kwargs.mention ? String(kwargs.mention).trim() : ''
+    if (mention && !/^usr[1-9]\d*$/.test(mention)) {
+      throw new ArgumentError('mention must use canonical usr<uid> form, e.g. usr559')
+    }
 
     let content = String(kwargs.content ?? '').trim()
     if (contentFile) {
@@ -52,6 +57,7 @@ cli({
 
     const body: Record<string, unknown> = { topic_id: topic, type: 'text', content }
     if (clientMsgId) body.client_msg_id = clientMsgId
+    if (mention) body.mentions = [mention]
 
     const script = buildPostScript(CATSCO_ENDPOINTS.sendMessage, body)
     const envelope = await page.evaluate(script)

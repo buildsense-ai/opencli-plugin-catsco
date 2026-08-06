@@ -31,6 +31,8 @@ export const CATSCO_ENDPOINTS = {
   friendReject: '/api/friends/reject',
   userSearch: '/api/users/search',
   groups: '/api/groups',
+  groupCreate: '/api/groups/create',
+  groupInfo: '/api/groups/info',
   groupInvite: '/api/groups/invite'
 } as const
 

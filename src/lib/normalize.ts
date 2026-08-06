@@ -153,6 +153,7 @@ export interface RawMessage {
   type?: string
   msg_type?: string
   mode?: string
+  mentions?: string[]
 }
 
 export interface RawAgentEntry {

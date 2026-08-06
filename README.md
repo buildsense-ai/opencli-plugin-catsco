@@ -31,6 +31,8 @@ must be connected — see `opencli doctor`).
 | `catsco friend-accept <user>` | write | Accept an incoming friend request |
 | `catsco friend-reject <user>` | write | Reject an incoming friend request |
 | `catsco groups` | read | List my groups |
+| `catsco group-create <name> <members>` | write | Create a standard collaboration group with comma-separated UIDs |
+| `catsco group-info <group>` | read | Inspect exact group kind, Agent IDs, and member IDs |
 | `catsco group-invite <group> <users>` | write | Invite users (comma-separated) into a group |
 | `catsco messages <topic>` | read | Read messages in a topic (`--limit`, `--offset`) |
 | `catsco entries <agent>` | read | Task entries for an agent |
@@ -38,7 +40,7 @@ must be connected — see `opencli doctor`).
 | `catsco open <agent>` | write | Open/select an agent, returns its conversation topic |
 | `catsco chat <agent> <message>` | write | Private-chat an agent — opens it and sends a message in one step |
 | `catsco watch <topic>` | read | Poll for new messages and fire a hook (`--webhook`/`--command`) |
-| `catsco send <topic> <content>` | write | Send a text message to a topic |
+| `catsco send <topic> <content>` | write | Send text; use `--mention usr<uid>` for a structured group Agent wake |
 | `catsco login <account>` | write | Log in (email/username) and persist the session to the browser |
 
 ### Examples
@@ -50,6 +52,9 @@ opencli catsco messages grp_1258 --limit 20
 opencli catsco open 574                  # -> p2p_275_574
 opencli catsco chat 574 "请帮我 review 最近的提交"   # one-step agent private chat
 opencli catsco send p2p_275_574 "你好"          # send to an explicit topic
+opencli catsco group-create "Loop: docs" 574,559
+opencli catsco group-info 1400
+opencli catsco send grp_1400 --mention usr559 --content-file packet.json
 
 # login — password via flag or CATSCO_PASSWORD env var (avoids it in shell history)
 opencli catsco login pi-dal --password '…'
@@ -176,11 +181,13 @@ These three capabilities let a Controller (e.g. `loopctl`) safely drive an
 existing topic's loop: retry without duplicates, reconcile after network
 timeouts, and pull new events on a stable seq cursor.
 
-### 1. Idempotent send — `send --client-message-id`
+### 1. Idempotent send and group wake — `send --client-message-id [--mention usr<uid>]`
 
 ```bash
-opencli catsco send <topic> --client-message-id "loop:42:action:review-001" --content-file packet.json -f json
+opencli catsco send <topic> --client-message-id "loop:42:action:review-001" --mention usr574 --content-file packet.json -f json
 ```
+
+For a multi-member group, visible `@name` text does not wake an Agent. `--mention usr<uid>` sets CatsCo's structured `mentions` array, which is the authoritative wake selector. Use one target per Loop Action.
 
 The CatsCo backend dedupes on `(topic_id, sender_uid, client_msg_id)` and returns
 a stable receipt. Re-sending the same `client_msg_id` returns the original

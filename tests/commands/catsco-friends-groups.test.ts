@@ -81,6 +81,54 @@ describe('catsco-friend-request', () => {
   })
 })
 
+describe('catsco-group-create', () => {
+  let config: any
+  beforeEach(async () => {
+    config = await load('catsco-group-create')
+  })
+
+  it('creates a standard collaboration group with parsed member ids', async () => {
+    const page = {
+      evaluate: vi.fn(async (_script?: unknown) => ({
+        status: 200,
+        body: { group_id: 1400, topic: 'grp_1400', name: 'Loop: docs', kind: 'standard', member_count: 3, agent_ids: [574, 559] }
+      }))
+    }
+    const result = await config.func(page, { name: 'Loop: docs', members: '574,559' })
+    const script = page.evaluate.mock.calls[0][0] as unknown as string
+    expect(script).toContain('/api/groups/create')
+    expect(script).toContain('"member_ids":[574,559]')
+    expect(script).toContain('"kind":"standard"')
+    expect(result).toMatchObject({ groupId: '1400', topic: 'grp_1400', memberCount: 3, agentIds: '574,559' })
+  })
+
+  it('rejects an empty group name or any invalid member id', async () => {
+    await expect(config.func({}, { name: ' ', members: '574' })).rejects.toThrow('group name')
+    await expect(config.func({}, { name: 'Loop', members: 'none' })).rejects.toThrow('member id')
+    await expect(config.func({}, { name: 'Loop', members: '574,invalid,559' })).rejects.toThrow('member id')
+  })
+})
+
+describe('catsco-group-info', () => {
+  let config: any
+  beforeEach(async () => {
+    config = await load('catsco-group-info')
+  })
+
+  it('returns exact group kind, topic, agents, and member ids for verification', async () => {
+    const page = {
+      evaluate: vi.fn(async (_script?: unknown) => ({ status: 200, body: {
+        group: { id: 1400, name: 'Loop', kind: 'standard', member_count: 3, agent_ids: [574, 559] },
+        members: [{ user_id: 275, role: 'owner' }, { user_id: 574, role: 'member', is_bot: true }, { user_id: 559, role: 'member', is_bot: true }]
+      } }))
+    }
+    const result = await config.func(page, { group: '1400' })
+    const script = page.evaluate.mock.calls[0][0] as unknown as string
+    expect(script).toContain('/api/groups/info?id=1400')
+    expect(result).toMatchObject({ groupId: '1400', topic: 'grp_1400', kind: 'standard', agentIds: '574,559', memberIds: '275,574,559' })
+  })
+})
+
 describe('catsco-group-invite', () => {
   let config: any
   beforeEach(async () => {
@@ -98,8 +146,9 @@ describe('catsco-group-invite', () => {
     expect(result).toMatchObject({ added: 2, requested: 0 })
   })
 
-  it('throws when no valid user ids', async () => {
-    await expect(config.func({}, { group: '1', users: 'abc' })).rejects.toThrow('at least one user id')
+  it('throws when any user id is invalid', async () => {
+    await expect(config.func({}, { group: '1', users: 'abc' })).rejects.toThrow('user id')
+    await expect(config.func({}, { group: '1', users: '42,nope,574' })).rejects.toThrow('user id')
   })
 })
 

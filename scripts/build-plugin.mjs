@@ -13,6 +13,8 @@ const commandEntries = [
   ['catsco-friend-accept.ts', 'catsco-friend-accept.js'],
   ['catsco-friend-reject.ts', 'catsco-friend-reject.js'],
   ['catsco-groups.ts', 'catsco-groups.js'],
+  ['catsco-group-create.ts', 'catsco-group-create.js'],
+  ['catsco-group-info.ts', 'catsco-group-info.js'],
   ['catsco-group-invite.ts', 'catsco-group-invite.js'],
   ['catsco-messages.ts', 'catsco-messages.js'],
   ['catsco-message-receipt.ts', 'catsco-message-receipt.js'],

@@ -7,6 +7,7 @@
   "description": "OpenCLI plugin for CatsCo AI agent assistant (app.catsco.cc)",
   "scripts": {
     "build:plugin": "node ./scripts/build-plugin.mjs",
+    "postinstall": "node ./scripts/build-plugin.mjs",
     "test": "vitest",
     "test:run": "vitest run",
     "typecheck": "tsc --noEmit"

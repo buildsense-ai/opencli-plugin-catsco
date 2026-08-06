@@ -51,6 +51,7 @@ cli({
           senderUid: String(message.from_uid ?? message.from ?? ''),
           kind: String(message.type ?? message.msg_type ?? ''),
           content,
+          mentions: Array.isArray(message.mentions) ? message.mentions.map(String) : [],
           contentDigest: sha256Hex(content),
           serverReceivedAt: String(message.created_at ?? '')
         }

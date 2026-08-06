@@ -26,14 +26,11 @@ cli({
   columns: ['added', 'requested'],
   func: async (page: any, kwargs: any) => {
     const groupId = Number(kwargs.group)
-    const userIds = String(kwargs.users)
-      .split(',')
-      .map((part) => Number(part.trim()))
-      .filter((id) => Number.isFinite(id) && id > 0)
-
-    if (userIds.length === 0) {
-      throw new ArgumentError('at least one user id is required (comma-separated)')
+    const userParts = String(kwargs.users).split(',').map((part) => part.trim())
+    if (userParts.length === 0 || userParts.some((part) => !/^[1-9]\d*$/.test(part))) {
+      throw new ArgumentError('every user id must be a positive integer (comma-separated)')
     }
+    const userIds = userParts.map(Number)
 
     const script = buildPostScript(CATSCO_ENDPOINTS.groupInvite, {
       group_id: groupId,

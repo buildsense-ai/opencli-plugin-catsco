@@ -154,6 +154,27 @@ describe('catsco-send', () => {
     const registry = JSON.parse(readFileSync('/tmp/catsco-send-receipts.json', 'utf8'))
     expect(registry['grp_1258::loop:42'].seqId).toBe('517999')
   })
+
+  it('sends a structured target mention for group agent activation', async () => {
+    const page = {
+      evaluate: vi.fn(async (_script?: unknown) => ({
+        status: 200,
+        body: { topic_id: 'grp_1258', seq_id: 518000, client_msg_id: 'loop:43' }
+      }))
+    }
+    await config.func(page, {
+      topic: 'grp_1258', content: '{"actionId":"a-1"}',
+      'client-message-id': 'loop:43', mention: 'usr559'
+    })
+    const script = page.evaluate.mock.calls[0][0] as unknown as string
+    expect(script).toContain('"mentions":["usr559"]')
+  })
+
+  it('rejects a non-canonical mention before sending', async () => {
+    await expect(config.func({}, {
+      topic: 'grp_1258', content: 'packet', mention: '@开发者'
+    })).rejects.toThrow('canonical usr<uid>')
+  })
 })
 
 describe('catsco-open', () => {
@@ -542,7 +563,7 @@ describe('catsco-messages --after-seq', () => {
     }
     const result = await config.func(page, { topic: 'topic_456', 'after-seq': 789, limit: 100 })
     expect(result.items).toHaveLength(1)
-    expect(result.items[0]).toMatchObject({ seqId: '790', senderUid: '574', content: 'b', kind: 'text' })
+    expect(result.items[0]).toMatchObject({ seqId: '790', senderUid: '574', content: 'b', kind: 'text', mentions: [] })
     expect(typeof result.items[0].contentDigest).toBe('string')
     expect(result.nextCursor).toBe('790')
     expect(result.hasMore).toBe(false)
@@ -564,6 +585,14 @@ describe('catsco-messages --after-seq', () => {
     const result = await config.func(page, { topic: 't', 'after-seq': 95, limit: 10 })
     expect(result.items.map((item: any) => item.seqId)).toEqual(['96', '100'])
     expect(result.nextCursor).toBe('100')
+  })
+
+  it('preserves structured mentions in cursor output', async () => {
+    const page = { evaluate: vi.fn(async () => ({ status: 200, body: { messages: [
+      { seq_id: 791, topic_id: 'grp_1', from_uid: 275, type: 'text', content: 'packet', mentions: ['usr559'], created_at: '2026-08-04T00:00:00Z' }
+    ] } })) }
+    const result = await config.func(page, { topic: 'grp_1', 'after-seq': 790, limit: 20 })
+    expect(result.items[0].mentions).toEqual(['usr559'])
   })
 
   it('stringifies object content instead of [object Object]', async () => {
