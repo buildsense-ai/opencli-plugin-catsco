@@ -24,7 +24,14 @@ export const CATSCO_ENDPOINTS = {
   openAgent: '/api/agents/open',
   sendMessage: '/api/messages/send',
   login: '/api/auth/login',
-  projects: '/api/projects'
+  projects: '/api/projects',
+  friends: '/api/friends',
+  friendRequest: '/api/friends/request',
+  friendAccept: '/api/friends/accept',
+  friendReject: '/api/friends/reject',
+  userSearch: '/api/users/search',
+  groups: '/api/groups',
+  groupInvite: '/api/groups/invite'
 } as const
 
 /** Read the Bearer token inside the page context and build an Authorization header. */

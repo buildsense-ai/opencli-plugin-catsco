@@ -25,6 +25,13 @@ must be connected — see `opencli doctor`).
 | `catsco conversations` | read | Recent conversations / agent tasks |
 | `catsco projects` | read | List projects (task groups) with task counts |
 | `catsco project-sessions <project>` | read | List sessions inside a project (by id or name) |
+| `catsco friends` | read | List my friends |
+| `catsco user-search <query>` | read | Search users by name or uid |
+| `catsco friend-request <user>` | write | Send a friend request (`--message`) |
+| `catsco friend-accept <user>` | write | Accept an incoming friend request |
+| `catsco friend-reject <user>` | write | Reject an incoming friend request |
+| `catsco groups` | read | List my groups |
+| `catsco group-invite <group> <users>` | write | Invite users (comma-separated) into a group |
 | `catsco messages <topic>` | read | Read messages in a topic (`--limit`, `--offset`) |
 | `catsco entries <agent>` | read | Task entries for an agent |
 | `catsco artifacts <agent>` | read | Cloud artifacts for an agent |

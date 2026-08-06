@@ -77,12 +77,26 @@ export interface RawProject {
   updated_at?: string
 }
 
+export interface RawGroup {
+  id?: number
+  name?: string
+  owner_id?: number
+  kind?: string
+  avatar_url?: string
+  has_bot?: boolean
+  member_count?: number
+  agent_ids?: number[]
+  max_members?: number
+  created_at?: string
+}
+
 export interface RawUser {
   account_type?: string
   avatar_url?: string
   created_at?: string
   display_name?: string
   email?: string
+  id?: number
   uid?: number
   username?: string
 }
@@ -223,6 +237,21 @@ export interface ProjectRow {
   updatedAt: string
 }
 
+export interface GroupRow {
+  id: string
+  name: string
+  kind: string
+  memberCount: number
+  hasBot: boolean
+  ownerId: string
+  agentIds: string
+}
+
+export interface FriendActionRow {
+  id: string
+  status: string
+}
+
 export interface OpenRow {
   agentUid: string
   displayName: string
@@ -310,6 +339,37 @@ export function normalizeProject(raw: RawProject): ProjectRow {
     ownerUid: str(raw.owner_uid),
     createdAt: str(raw.created_at),
     updatedAt: str(raw.updated_at)
+  }
+}
+
+export function normalizeGroup(raw: RawGroup): GroupRow {
+  return {
+    id: str(raw.id),
+    name: str(raw.name),
+    kind: str(raw.kind),
+    memberCount: Number(raw.member_count ?? 0),
+    hasBot: bool(raw.has_bot),
+    ownerId: str(raw.owner_id),
+    agentIds: Array.isArray(raw.agent_ids) ? raw.agent_ids.join(',') : ''
+  }
+}
+
+export function normalizeFriendAction(body: unknown): FriendActionRow {
+  const raw = (body && typeof body === 'object' ? body : {}) as { id?: number; status?: string }
+  return {
+    id: str(raw.id),
+    status: str(raw.status)
+  }
+}
+
+export function normalizeUserRow(raw: RawUser): UserRow {
+  return {
+    uid: str(raw.uid ?? raw.id),
+    username: str(raw.username),
+    email: str(raw.email),
+    displayName: str(raw.display_name),
+    accountType: str(raw.account_type),
+    createdAt: str(raw.created_at)
   }
 }
 
