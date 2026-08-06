@@ -589,7 +589,7 @@ describe('catsco-messages --after-seq', () => {
 
   it('preserves structured mentions in cursor output', async () => {
     const page = { evaluate: vi.fn(async () => ({ status: 200, body: { messages: [
-      { seq_id: 791, topic_id: 'grp_1', from_uid: 275, type: 'text', content: 'packet', mentions: ['usr559'], created_at: '2026-08-04T00:00:00Z' }
+      { seq_id: 791, topic_id: 'grp_1', from_uid: 275, type: 'text', content: 'packet', content_blocks: [{ type: 'text', payload: { mentions: ['usr559'] } }], created_at: '2026-08-04T00:00:00Z' }
     ] } })) }
     const result = await config.func(page, { topic: 'grp_1', 'after-seq': 790, limit: 20 })
     expect(result.items[0].mentions).toEqual(['usr559'])

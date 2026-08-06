@@ -51,6 +51,14 @@ function str(value: unknown): string {
   return value == null ? '' : String(value)
 }
 
+export function messageMentions(raw: RawMessage): string[] {
+  const direct = Array.isArray(raw.mentions) ? raw.mentions : []
+  const embedded = Array.isArray(raw.content_blocks)
+    ? raw.content_blocks.flatMap((block) => Array.isArray(block.payload?.mentions) ? block.payload.mentions : [])
+    : []
+  return [...new Set([...direct, ...embedded].map(String).filter((value) => /^(?:all|usr[1-9]\d*)$/.test(value)))]
+}
+
 /** Render message content: objects are JSON-stringified back to their stored form. */
 export function contentString(value: unknown): string {
   if (typeof value === 'string') return value
@@ -154,6 +162,7 @@ export interface RawMessage {
   msg_type?: string
   mode?: string
   mentions?: string[]
+  content_blocks?: Array<{ payload?: { mentions?: string[] } }>
 }
 
 export interface RawAgentEntry {

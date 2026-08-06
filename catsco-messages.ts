@@ -1,7 +1,7 @@
 import { Strategy, cli } from '@jackwener/opencli/registry'
 
 import { CATSCO_APP_URL, CATSCO_DOMAIN, CATSCO_ENDPOINTS, buildGetScript } from './src/lib/api'
-import { contentString, extractList, normalizeMessage, unwrapApi, type RawMessage } from './src/lib/normalize'
+import { contentString, extractList, messageMentions, normalizeMessage, unwrapApi, type RawMessage } from './src/lib/normalize'
 import { sha256Hex } from './src/lib/receipt'
 
 cli({
@@ -51,7 +51,7 @@ cli({
           senderUid: String(message.from_uid ?? message.from ?? ''),
           kind: String(message.type ?? message.msg_type ?? ''),
           content,
-          mentions: Array.isArray(message.mentions) ? message.mentions.map(String) : [],
+          mentions: messageMentions(message),
           contentDigest: sha256Hex(content),
           serverReceivedAt: String(message.created_at ?? '')
         }
