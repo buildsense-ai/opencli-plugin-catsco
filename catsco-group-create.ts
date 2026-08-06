@@ -25,7 +25,8 @@ cli({
   defaultFormat: 'json',
   args: [
     { name: 'name', positional: true, required: true, help: 'Group name' },
-    { name: 'members', positional: true, required: true, help: 'Comma-separated user or Agent UIDs, e.g. 574,559' }
+    { name: 'members', positional: true, required: true, help: 'Comma-separated user or Agent UIDs, e.g. 574,559' },
+    { name: 'kind', required: false, help: 'Group kind: standard (default) or agent_task' }
   ],
   columns: ['groupId', 'topic', 'name', 'kind', 'memberCount', 'agentIds'],
   func: async (page: any, kwargs: any) => {
@@ -37,18 +38,25 @@ cli({
       throw new ArgumentError('every member id must be a positive integer (comma-separated)')
     }
     const memberIds = memberParts.map(Number)
+    const kind = String(kwargs.kind ?? 'standard').trim() || 'standard'
+    if (kind !== 'standard' && kind !== 'agent_task') {
+      throw new ArgumentError('group kind must be standard or agent_task')
+    }
+    if (kind === 'agent_task' && memberIds.length !== 1) {
+      throw new ArgumentError('agent_task requires exactly one Agent member')
+    }
 
     const envelope = await page.evaluate(buildPostScript(CATSCO_ENDPOINTS.groupCreate, {
       name,
       member_ids: [...new Set(memberIds)],
-      kind: 'standard'
+      kind
     }))
     const response = unwrapApi<GroupCreateResponse>(envelope)
     return {
       groupId: String(response.group_id ?? ''),
       topic: String(response.topic ?? ''),
       name: String(response.name ?? name),
-      kind: String(response.kind ?? 'standard'),
+      kind: String(response.kind ?? kind),
       memberCount: Number(response.member_count ?? 0),
       agentIds: (response.agent_ids ?? []).map(String).join(',')
     }

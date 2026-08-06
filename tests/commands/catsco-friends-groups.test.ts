@@ -102,10 +102,26 @@ describe('catsco-group-create', () => {
     expect(result).toMatchObject({ groupId: '1400', topic: 'grp_1400', memberCount: 3, agentIds: '574,559' })
   })
 
-  it('rejects an empty group name or any invalid member id', async () => {
+  it('creates a single-Worker agent task group', async () => {
+    const page = {
+      evaluate: vi.fn(async (_script?: unknown) => ({
+        status: 200,
+        body: { group_id: 1401, topic: 'grp_1401', name: 'Loop: attempt', kind: 'agent_task', member_count: 2, agent_ids: [559] }
+      }))
+    }
+    const result = await config.func(page, { name: 'Loop: attempt', members: '559', kind: 'agent_task' })
+    const script = page.evaluate.mock.calls[0][0] as unknown as string
+    expect(script).toContain('"member_ids":[559]')
+    expect(script).toContain('"kind":"agent_task"')
+    expect(result).toMatchObject({ groupId: '1401', topic: 'grp_1401', kind: 'agent_task', agentIds: '559' })
+  })
+
+  it('rejects an empty group name, invalid members, or invalid agent-task topology', async () => {
     await expect(config.func({}, { name: ' ', members: '574' })).rejects.toThrow('group name')
     await expect(config.func({}, { name: 'Loop', members: 'none' })).rejects.toThrow('member id')
     await expect(config.func({}, { name: 'Loop', members: '574,invalid,559' })).rejects.toThrow('member id')
+    await expect(config.func({}, { name: 'Loop', members: '559,574', kind: 'agent_task' })).rejects.toThrow('exactly one Agent')
+    await expect(config.func({}, { name: 'Loop', members: '559', kind: 'unknown' })).rejects.toThrow('group kind')
   })
 })
 
