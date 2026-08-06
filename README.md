@@ -43,10 +43,16 @@ must be connected — see `opencli doctor`).
 | `catsco send <topic> <content>` | write | Send text; use `--mention usr<uid>` for a structured group Agent wake |
 | `catsco login <account>` | write | Log in (email/username) and persist the session to the browser |
 
+For Loop Worker provisioning, `friends`, `friend-request`, `friend-accept`, and `agents` are the relevant commands: adding an Agent means establishing a friend relationship so the owner can discover and address that Agent. This does not grant Kernel authority or assign work by itself; Loop Review still validates the Agent and Controller still dispatches only to committed Worker Actions.
+
 ### Examples
 
 ```bash
 opencli catsco agents -f table
+opencli catsco friends -f table
+opencli catsco friend-request 559 --message "Loop Worker access requested"
+# After the Agent owner accepts:
+opencli catsco agents -f json
 opencli catsco conversations -f json
 opencli catsco messages grp_1258 --limit 20
 opencli catsco open 574                  # -> p2p_275_574
@@ -78,6 +84,10 @@ ever stored by the plugin.
 | GET | `/api/agents` | `agents` |
 | GET | `/api/conversations` | `conversations` |
 | GET | `/api/projects` | `projects` |
+| GET | `/api/friends` | `friends` |
+| POST | `/api/friends/request` | `friend-request` |
+| POST | `/api/friends/accept` | `friend-accept` |
+| POST | `/api/friends/reject` | `friend-reject` |
 
 > There is no dedicated "project sessions" endpoint — `project-sessions` pulls
 > `/api/conversations` and filters by the `project_id`/`project_name` the server
