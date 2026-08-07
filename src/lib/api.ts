@@ -25,6 +25,7 @@ export const CATSCO_ENDPOINTS = {
   sendMessage: '/api/messages/send',
   login: '/api/auth/login',
   projects: '/api/projects',
+  projectTopic: '/api/projects/topic',
   friends: '/api/friends',
   friendRequest: '/api/friends/request',
   friendAccept: '/api/friends/accept',

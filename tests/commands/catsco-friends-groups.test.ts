@@ -81,6 +81,27 @@ describe('catsco-friend-request', () => {
   })
 })
 
+describe('catsco-project-assign-topic', () => {
+  let config: any
+  beforeEach(async () => {
+    config = await load('catsco-project-assign-topic')
+  })
+
+  it('assigns one existing topic to a numeric Project', async () => {
+    const page = { evaluate: vi.fn(async (_script?: unknown) => ({ status: 200, body: { ok: true } })) }
+    await expect(config.func(page, { project: '1358', topic: 'grp_1401' })).resolves.toMatchObject({ projectId: '1358', topicId: 'grp_1401', assigned: true })
+    const script = page.evaluate.mock.calls[0][0] as unknown as string
+    expect(script).toContain('/api/projects/topic')
+    expect(script).toContain('"project_id":1358')
+    expect(script).toContain('"topic_id":"grp_1401"')
+  })
+
+  it('rejects invalid Project or topic identifiers', async () => {
+    await expect(config.func({}, { project: 'project', topic: 'grp_1401' })).rejects.toThrow('numeric')
+    await expect(config.func({}, { project: '1358', topic: 'not-a-topic' })).rejects.toThrow('topic')
+  })
+})
+
 describe('catsco-group-create', () => {
   let config: any
   beforeEach(async () => {

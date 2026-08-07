@@ -7,6 +7,7 @@ const commandEntries = [
   ['catsco-conversations.ts', 'catsco-conversations.js'],
   ['catsco-projects.ts', 'catsco-projects.js'],
   ['catsco-project-sessions.ts', 'catsco-project-sessions.js'],
+  ['catsco-project-assign-topic.ts', 'catsco-project-assign-topic.js'],
   ['catsco-friends.ts', 'catsco-friends.js'],
   ['catsco-user-search.ts', 'catsco-user-search.js'],
   ['catsco-friend-request.ts', 'catsco-friend-request.js'],
