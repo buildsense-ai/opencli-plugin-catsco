@@ -81,6 +81,25 @@ describe('catsco-friend-request', () => {
   })
 })
 
+describe('catsco-project-create', () => {
+  let config: any
+  beforeEach(async () => {
+    config = await load('catsco-project-create')
+  })
+
+  it('creates and normalizes an owner-scoped Project', async () => {
+    const page = { evaluate: vi.fn(async (_script?: unknown) => ({ status: 201, body: { project: { id: 1359, name: 'Loop loop-1', owner_uid: 602, created_at: '2026-08-07T00:00:00Z' } } })) }
+    await expect(config.func(page, { name: 'Loop loop-1' })).resolves.toMatchObject({ id: '1359', name: 'Loop loop-1', ownerUid: '602' })
+    const script = page.evaluate.mock.calls[0][0] as unknown as string
+    expect(script).toContain('/api/projects')
+    expect(script).toContain('"name":"Loop loop-1"')
+  })
+
+  it('rejects invalid project names', async () => {
+    await expect(config.func({}, { name: ' ' })).rejects.toThrow('project name')
+  })
+})
+
 describe('catsco-project-assign-topic', () => {
   let config: any
   beforeEach(async () => {
