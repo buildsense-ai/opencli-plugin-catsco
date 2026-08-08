@@ -84,6 +84,39 @@ describe('catsco-messages', () => {
     expect(config.args[0]).toMatchObject({ name: 'topic', positional: true, required: true })
   })
 
+  it('uses the server-authoritative after_seq cursor without a latest window', async () => {
+    const page = {
+      evaluate: vi.fn(async (_script?: unknown) => ({
+        status: 200,
+        body: {
+          messages: [
+            { id: 201, seq_id: 201, topic_id: 'grp_1258', from_uid: 559, type: 'text', content: 'first', created_at: '2026-08-04T00:44:55Z' },
+            { id: 202, seq_id: 202, topic_id: 'grp_1258', from_uid: 559, type: 'text', content: 'second', created_at: '2026-08-04T00:44:56Z' }
+          ],
+          cursor_version: 'after_seq_v1',
+          next_cursor: 202,
+          has_more: true
+        }
+      }))
+    }
+    const result = await config.func(page, { topic: 'grp_1258', limit: 200, 'after-seq': 200 })
+    const script = page.evaluate.mock.calls[0][0] as unknown as string
+    expect(script).toContain('/api/messages?topic_id=grp_1258&limit=200&after_seq=200')
+    expect(script).not.toContain('latest=1')
+    expect(result).toMatchObject({ nextCursor: '202', hasMore: true })
+    expect(result.items.map((item: any) => item.seqId)).toEqual(['201', '202'])
+  })
+
+  it('rejects malformed server cursor envelopes', async () => {
+    const page = {
+      evaluate: vi.fn(async (_script?: unknown) => ({
+        status: 200,
+        body: { messages: [{ id: 201, seq_id: 201, topic_id: 'grp_1258', from_uid: 559, content: 'first' }], cursor_version: 'after_seq_v1', next_cursor: 999, has_more: false }
+      }))
+    }
+    await expect(config.func(page, { topic: 'grp_1258', 'after-seq': 200 })).rejects.toThrow('invalid next_cursor')
+  })
+
   it('builds the topic query URL and returns normalized messages', async () => {
     const page = {
       evaluate: vi.fn(async (_script?: unknown) => ({
@@ -555,9 +588,11 @@ describe('catsco-messages --after-seq', () => {
         status: 200,
         body: {
           messages: [
-            { seq_id: 790, id: 790, topic_id: 'topic_456', from_uid: 574, type: 'text', content: 'b', created_at: 't2' },
-            { seq_id: 789, id: 789, topic_id: 'topic_456', from_uid: 574, type: 'text', content: 'a', created_at: 't1' }
-          ]
+            { seq_id: 790, id: 790, topic_id: 'topic_456', from_uid: 574, type: 'text', content: 'b', created_at: 't2' }
+          ],
+          cursor_version: 'after_seq_v1',
+          next_cursor: 790,
+          has_more: false
         }
       }))
     }
@@ -569,16 +604,18 @@ describe('catsco-messages --after-seq', () => {
     expect(result.hasMore).toBe(false)
   })
 
-  it('filters to seq strictly greater than after-seq and sorts ascending', async () => {
+  it('requires the server page to be strictly ascending after the cursor', async () => {
     const page = {
       evaluate: vi.fn(async () => ({
         status: 200,
         body: {
           messages: [
-            { seq_id: 100, id: 100, from_uid: 1, type: 'text', content: 'c' },
-            { seq_id: 95, id: 95, from_uid: 1, type: 'text', content: 'a' },
-            { seq_id: 96, id: 96, from_uid: 1, type: 'text', content: 'b' }
-          ]
+            { seq_id: 96, id: 96, from_uid: 1, type: 'text', content: 'b' },
+            { seq_id: 100, id: 100, from_uid: 1, type: 'text', content: 'c' }
+          ],
+          cursor_version: 'after_seq_v1',
+          next_cursor: 100,
+          has_more: false
         }
       }))
     }
@@ -590,7 +627,7 @@ describe('catsco-messages --after-seq', () => {
   it('preserves structured mentions in cursor output', async () => {
     const page = { evaluate: vi.fn(async () => ({ status: 200, body: { messages: [
       { seq_id: 791, topic_id: 'grp_1', from_uid: 275, type: 'text', content: 'packet', content_blocks: [{ type: 'text', payload: { mentions: ['usr559'] } }], created_at: '2026-08-04T00:00:00Z' }
-    ] } })) }
+    ], cursor_version: 'after_seq_v1', next_cursor: 791, has_more: false } })) }
     const result = await config.func(page, { topic: 'grp_1', 'after-seq': 790, limit: 20 })
     expect(result.items[0].mentions).toEqual(['usr559'])
   })
@@ -600,7 +637,10 @@ describe('catsco-messages --after-seq', () => {
       evaluate: vi.fn(async () => ({
         status: 200,
         body: {
-          messages: [{ seq_id: 1, id: 1, from_uid: 275, type: 'text', content: { type: 'x', n: 1 } }]
+          messages: [{ seq_id: 1, id: 1, from_uid: 275, type: 'text', content: { type: 'x', n: 1 } }],
+          cursor_version: 'after_seq_v1',
+          next_cursor: 1,
+          has_more: false
         }
       }))
     }

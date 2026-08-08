@@ -1,4 +1,5 @@
 import { Strategy, cli } from '@jackwener/opencli/registry'
+import { ArgumentError } from '@jackwener/opencli/errors'
 
 import { CATSCO_APP_URL, CATSCO_DOMAIN, CATSCO_ENDPOINTS, buildGetScript } from './src/lib/api'
 import { contentString, extractList, messageMentions, normalizeMessage, unwrapApi, type RawMessage } from './src/lib/normalize'
@@ -28,21 +29,22 @@ cli({
     const offset = Math.max(0, Number(kwargs.offset ?? 0))
     const afterSeq = kwargs['after-seq'] != null ? Number(kwargs['after-seq']) : null
 
-    // Cursor mode: pull the newest batch, keep only seq > afterSeq, return an
-    // envelope. The backend has no after_seq param, so this fetches latest=N
-    // (ascending) and filters client-side — correct for bounded topics.
+    // Cursor mode is server-authoritative: the API returns the first bounded,
+    // ascending page after after_seq. Never synthesize a cursor from a latest-N
+    // window, because that can permanently skip a backlog larger than the window.
     if (afterSeq != null) {
-      const url = `${CATSCO_ENDPOINTS.messages}?topic_id=${encodeURIComponent(topic)}&limit=${limit}&offset=0&latest=1`
+      if (!Number.isSafeInteger(afterSeq) || afterSeq < 0) {
+        throw new ArgumentError('after-seq must be a non-negative safe integer')
+      }
+      const url = `${CATSCO_ENDPOINTS.messages}?topic_id=${encodeURIComponent(topic)}&limit=${limit}&after_seq=${afterSeq}`
       const script = buildGetScript(url)
       const envelope = await page.evaluate(script)
-      const body = unwrapApi<{ messages?: RawMessage[] }>(envelope)
-      const ascending = (body?.messages ?? [])
-        .slice()
-        .sort((a, b) => Number(a.seq_id ?? a.id ?? 0) - Number(b.seq_id ?? b.id ?? 0))
-      const fresh = ascending.filter((message) => Number(message.seq_id ?? message.id ?? 0) > afterSeq)
-
-      const items = fresh.map((message) => {
+      const body = unwrapApi<{ messages?: RawMessage[]; next_cursor?: number | string; has_more?: boolean; cursor_version?: string }>(envelope)
+      if (body?.cursor_version !== 'after_seq_v1') throw new ArgumentError('CatsCo after-seq response did not provide the continuous cursor contract')
+      if (!Array.isArray(body?.messages)) throw new ArgumentError('CatsCo after-seq response did not include messages')
+      const items = body.messages.map((message) => {
         const seq = Number(message.seq_id ?? message.id ?? 0)
+        if (!Number.isSafeInteger(seq) || seq <= afterSeq) throw new ArgumentError('CatsCo after-seq response returned an invalid sequence')
         const content = contentString(message.content)
         return {
           messageId: String(message.id ?? message.seq_id ?? ''),
@@ -56,13 +58,18 @@ cli({
           serverReceivedAt: String(message.created_at ?? '')
         }
       })
-
-      const nextSeq = items.length ? Number(items[items.length - 1].seqId) : afterSeq
-      return {
-        items,
-        nextCursor: String(nextSeq),
-        hasMore: fresh.length >= limit
+      for (let index = 1; index < items.length; index++) {
+        if (Number(items[index].seqId) <= Number(items[index - 1].seqId)) {
+          throw new ArgumentError('CatsCo after-seq response was not strictly ascending')
+        }
       }
+      const expectedCursor = items.length ? Number(items[items.length - 1].seqId) : afterSeq
+      const nextCursor = Number(body.next_cursor)
+      if (!Number.isSafeInteger(nextCursor) || nextCursor !== expectedCursor) {
+        throw new ArgumentError('CatsCo after-seq response had an invalid next_cursor')
+      }
+      if (typeof body.has_more !== 'boolean') throw new ArgumentError('CatsCo after-seq response had an invalid has_more')
+      return { cursorVersion: 'after-seq-v1', items, nextCursor: String(nextCursor), hasMore: body.has_more }
     }
 
     // Default mode: return the requested window as rows.
